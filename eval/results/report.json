@@ -1,0 +1,35 @@
+{
+  "_note": "Regenerate with: python eval/run_locomo.py eval/data/sample_locomo.json --report eval/results/report.json (requires GROQ_API_KEY). Metrics below are placeholders until you run locally.",
+  "file": "eval/data/sample_locomo.json",
+  "mode": "both",
+  "mnemo_config": {
+    "top_k": 12,
+    "recent_messages": 12,
+    "embeddings_disabled": false,
+    "chat_model": "llama-3.3-70b-versatile"
+  },
+  "memory": {
+    "passed": 0,
+    "failed": 0,
+    "sessions": [],
+    "context_token_samples": []
+  },
+  "baseline_last_n": {
+    "passed": 0,
+    "failed": 0,
+    "sessions": []
+  },
+  "comparison": {
+    "memory_pass_rate": null,
+    "baseline_pass_rate": null,
+    "memory_passed": 0,
+    "memory_failed": 0,
+    "baseline_passed": 0,
+    "baseline_failed": 0,
+    "approx_prompt_tokens_avg": {
+      "memory_retrieval": null,
+      "baseline_last_n_only": null,
+      "hypothetical_full_history": null
+    }
+  }
+}
