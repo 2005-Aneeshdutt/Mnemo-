@@ -1,0 +1,235 @@
+{
+  "version": 2,
+  "description": "Custom long-memory eval (substring checks). Not the official LoCoMo benchmark.",
+  "baseline_last_n": 12,
+  "sessions": [
+    {
+      "id": "facts_and_places",
+      "tenant_id": "eval",
+      "turns": [
+        "Hi. My name is Sam and I grew up in Austin, Texas.",
+        "For work I am a nurse practitioner at City General Hospital.",
+        "My employee ID badge number is 77421 — please do not share that publicly.",
+        "What city did I say I grew up in?",
+        "I commute by bus; the line I use most is route 42.",
+        "On weekends I volunteer at the Riverside Animal Shelter.",
+        "Remind me: where do I work and what route do I take most often?",
+        "I am learning Spanish using an app for 20 minutes each morning.",
+        "My favorite coffee order is oat milk latte, no sugar.",
+        "What is my usual coffee order?",
+        "I have a cat named Pixel and a dog named Nova.",
+        "If I mention pets, what are their names?",
+        "I will move to Denver next June for a new job.",
+        "What city am I planning to move to and roughly when?",
+        "My emergency contact is my sister Maya; she lives in Boulder.",
+        "For prescriptions I use Maple Pharmacy on 5th Street.",
+        "Summarize my emergency contact and pharmacy in one sentence.",
+        "I prefer email over phone for non-urgent updates.",
+        "My work email ends with @citygeneral.org — internal only.",
+        "What email domain did I mention for work?",
+        "I do not eat pork for personal reasons.",
+        "What dietary restriction did I state?",
+        "I wake up around 6:30 on weekdays.",
+        "What time do I wake up on weekdays?",
+        "Thanks, that is enough about me for now."
+      ],
+      "checks": [
+        {
+          "after_user_turn": 4,
+          "question": "What city did I say I grew up in?",
+          "answer_must_contain": ["Austin"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 7,
+          "question": "Where do I work and what bus route?",
+          "answer_must_contain": ["City General", "42"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 10,
+          "question": "Coffee order?",
+          "answer_must_contain": ["oat", "latte"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 12,
+          "question": "Pet names?",
+          "answer_must_contain": ["Pixel", "Nova"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 14,
+          "question": "Move to where and when?",
+          "answer_must_contain": ["Denver", "June"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 17,
+          "question": "Emergency contact and pharmacy?",
+          "answer_must_contain": ["Maya", "Maple"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 20,
+          "question": "Work email domain?",
+          "answer_must_contain": ["citygeneral.org"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 22,
+          "question": "Dietary restriction?",
+          "answer_must_contain": ["pork"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 24,
+          "question": "Wake up time weekdays?",
+          "answer_must_contain": ["6:30"],
+          "answer_must_not_contain": []
+        }
+      ]
+    },
+    {
+      "id": "preferences",
+      "tenant_id": "eval",
+      "turns": [
+        "I want you to keep answers short and use bullet points when listing items.",
+        "I dislike exclamation marks in replies; please avoid them.",
+        "My preferred programming language for scripts is Python.",
+        "For data I usually use SQLite rather than a hosted database.",
+        "What language and database preference did I give?",
+        "I like dark mode UIs everywhere.",
+        "Font-wise I prefer system defaults over custom web fonts.",
+        "Summarize my UI preferences.",
+        "I read documentation before asking vague questions — encourage that habit.",
+        "When I ask for estimates, give ranges not fake precision.",
+        "What did I say about estimates?",
+        "I am on Central Time (US).",
+        "What timezone am I in?"
+      ],
+      "checks": [
+        {
+          "after_user_turn": 5,
+          "question": "Language and DB?",
+          "answer_must_contain": ["Python", "SQLite"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 8,
+          "question": "UI preferences summary?",
+          "answer_must_contain": ["dark"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 11,
+          "question": "Estimates?",
+          "answer_must_contain": ["range"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 13,
+          "question": "Timezone?",
+          "answer_must_contain": ["Central"],
+          "answer_must_not_contain": []
+        }
+      ]
+    },
+    {
+      "id": "corrections",
+      "tenant_id": "eval",
+      "turns": [
+        "My car is a 2019 Honda Civic in silver.",
+        "I bought it used with about 40k miles on it.",
+        "Actually correction: it is a 2020 model, not 2019 — please update that.",
+        "What model year is my car now?",
+        "The license plate prefix I mentioned earlier was ABZ — ignore that; the correct prefix is QRX.",
+        "What is the correct plate prefix I want you to remember?",
+        "I said I drive manual, but I meant automatic transmission.",
+        "What transmission type should you remember?",
+        "I previously said I park in lot 7; I now park in garage level B2.",
+        "Where do I park now?"
+      ],
+      "checks": [
+        {
+          "after_user_turn": 4,
+          "question": "Model year after correction?",
+          "answer_must_contain": ["2020"],
+          "answer_must_not_contain": ["2019"]
+        },
+        {
+          "after_user_turn": 6,
+          "question": "Plate prefix?",
+          "answer_must_contain": ["QRX"],
+          "answer_must_not_contain": ["ABZ"]
+        },
+        {
+          "after_user_turn": 8,
+          "question": "Transmission?",
+          "answer_must_contain": ["automatic"],
+          "answer_must_not_contain": ["manual"]
+        },
+        {
+          "after_user_turn": 10,
+          "question": "Parking location?",
+          "answer_must_contain": ["B2"],
+          "answer_must_not_contain": []
+        }
+      ]
+    },
+    {
+      "id": "long_recall",
+      "tenant_id": "eval",
+      "turns": [
+        "Project codename is Nightingale.",
+        "The staging API base URL is https://staging.example.internal only.",
+        "Production must never be hit from my laptop — staging only.",
+        "Rotate logs weekly; retention 30 days.",
+        "On-call primary is team Alpha; backup is team Beta.",
+        "What is the project codename and staging URL?",
+        "Security: no secrets in chat logs; use the vault.",
+        "Default region for deploys is us-east-1.",
+        "What region did I specify?",
+        "Incident severity P1 means page immediately.",
+        "What does P1 mean in my notes?",
+        "Budget cap for this experiment is 500 dollars.",
+        "What was the budget cap?",
+        "Reporting line: I report to Director Chen.",
+        "Who is my director?",
+        "End of project notes."
+      ],
+      "checks": [
+        {
+          "after_user_turn": 6,
+          "question": "Codename and staging URL?",
+          "answer_must_contain": ["Nightingale", "staging.example.internal"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 9,
+          "question": "Region?",
+          "answer_must_contain": ["us-east-1"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 11,
+          "question": "P1 meaning?",
+          "answer_must_contain": ["page"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 13,
+          "question": "Budget?",
+          "answer_must_contain": ["500"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 15,
+          "question": "Who is my director?",
+          "answer_must_contain": ["Chen"],
+          "answer_must_not_contain": []
+        }
+      ]
+    }
+  ]
+}
