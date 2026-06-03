@@ -47,15 +47,19 @@ def _env_bool(primary: str, default: bool, legacy: str | None = None) -> bool:
 
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 CHAT_MODEL = _env_str("GROQ_MODEL", "llama-3.3-70b-versatile")
 EXTRACT_MODEL = _env_str("GROQ_EXTRACT_MODEL", "llama-3.1-8b-instant")
 EMBEDDING_MODEL = _env_str("GROQ_EMBED_MODEL", "nomic-embed-text-v1_5")
+# nomic-embed-text-v1_5 is the primary; fall back to the older name if account lacks it
+_DEFAULT_EMBED_FALLBACKS = "nomic-embed-text-v1.5"
 
 
 def embedding_model_candidates() -> list[str]:
     """Primary model first, then comma-separated fallbacks from GROQ_EMBED_MODEL_FALLBACKS."""
     primary = EMBEDDING_MODEL
-    extra = os.environ.get("GROQ_EMBED_MODEL_FALLBACKS", "")
+    extra = os.environ.get("GROQ_EMBED_MODEL_FALLBACKS", _DEFAULT_EMBED_FALLBACKS)
     out: list[str] = [primary]
     if extra.strip():
         out.extend(x.strip() for x in extra.split(",") if x.strip())
@@ -73,6 +77,7 @@ DB_PATH = Path(_env_str("MNEMO_DB_PATH", str(DEFAULT_DB_PATH), "MEMORI_DB_PATH")
 
 TOP_K = _env_int("MNEMO_TOP_K", 12, "MEMORI_TOP_K")
 RECENT_MESSAGES = _env_int("MNEMO_RECENT_MSG", 12, "MEMORI_RECENT_MSG")
+MEMORY_MAX_ROWS = _env_int("MNEMO_MEMORY_MAX_ROWS", 500)
 
 HYBRID_W_DENSE = _env_float("MNEMO_W_DENSE", 0.5, "MEMORI_W_DENSE")
 HYBRID_W_LEX = _env_float("MNEMO_W_LEX", 0.35, "MEMORI_W_LEX")
@@ -94,4 +99,8 @@ RATE_LIMIT_DEFAULT = _env_str("MNEMO_RATE_LIMIT", "120/minute", "MEMORI_RATE_LIM
 RATE_LIMIT_CHAT = _env_str("MNEMO_RATE_LIMIT_CHAT", "60/minute", "MEMORI_RATE_LIMIT_CHAT")
 
 EMBEDDINGS_DISABLED = _env_bool("MNEMO_NO_EMBEDDINGS", False, "MEMORI_NO_EMBEDDINGS")
+TOOL_USE_ENABLED = _env_bool("MNEMO_TOOL_USE", True)
+
+COMPACT_EVERY_N = _env_int("MNEMO_COMPACT_EVERY_N", 20)
+COMPACT_MIN_ROWS = _env_int("MNEMO_COMPACT_MIN_ROWS", 15)
 
