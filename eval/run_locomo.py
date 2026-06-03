@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -20,9 +21,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from groq import Groq
-
 from mnemo import config
+from mnemo.client import create_client
 from mnemo.agent import ChatState, chat_turn, chat_turn_last_n_only, estimate_context_tokens
 from mnemo import store
 from mnemo.tenancy import scope_session
@@ -48,6 +48,7 @@ def _run_session(
     use_memory: bool,
     results: dict[str, Any],
     token_samples: list[dict[str, Any]],
+    turn_sleep: float = 0.0,
 ) -> dict[str, Any]:
     sid = sess.get("id", "anon")
     tenant = (sess.get("tenant_id") or "eval").strip() or "eval"
@@ -64,10 +65,23 @@ def _run_session(
     last_reply = ""
 
     for i, user_line in enumerate(turns, start=1):
-        if use_memory:
-            last_reply = chat_turn(client, conn, state, user_line)
-        else:
-            last_reply = chat_turn_last_n_only(client, state, user_line)
+        for attempt in range(4):
+            try:
+                if use_memory:
+                    last_reply = chat_turn(client, conn, state, user_line)
+                else:
+                    last_reply = chat_turn_last_n_only(client, state, user_line)
+                break
+            except Exception as e:
+                if ("429" in str(e) or "503" in str(e)) and attempt < 3:
+                    wait = 30 * (2 ** attempt)
+                    print(f"  Rate limited — waiting {wait}s before retry {attempt + 1}/3...", flush=True)
+                    time.sleep(wait)
+                else:
+                    raise
+
+        if turn_sleep > 0:
+            time.sleep(turn_sleep)
 
         for chk in checks:
             if int(chk.get("after_user_turn", -1)) != i:
@@ -104,14 +118,13 @@ def _run_session(
     return sess_out
 
 
-def run_file(path: Path, out_report: Path | None, mode: str) -> dict[str, Any]:
+def run_file(path: Path, out_report: Path | None, mode: str, turn_sleep: float = 0.0) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     sessions = data.get("sessions") or []
-    if not config.GROQ_API_KEY:
-        raise SystemExit("GROQ_API_KEY is not set. Add it to .env in the project root.")
+    if not config.GROQ_API_KEY and not config.GEMINI_API_KEY:
+        raise SystemExit("Set GROQ_API_KEY or GEMINI_API_KEY in .env in the project root.")
 
-    os.environ.setdefault("GROQ_API_KEY", config.GROQ_API_KEY)
-    client = Groq()
+    client = create_client()
     conn = store.connect(config.DB_PATH)
     store.init_schema(conn)
 
@@ -134,7 +147,7 @@ def run_file(path: Path, out_report: Path | None, mode: str) -> dict[str, Any]:
     if mode in ("memory", "both"):
         res_mem = {"passed": 0, "failed": 0, "sessions": []}
         for sess in sessions:
-            res_mem["sessions"].append(_run_session(client, conn, sess, use_memory=True, results=res_mem, token_samples=token_samples))
+            res_mem["sessions"].append(_run_session(client, conn, sess, use_memory=True, results=res_mem, token_samples=token_samples, turn_sleep=turn_sleep))
         out["memory"] = res_mem
         out["memory"]["context_token_samples"] = token_samples
 
@@ -143,7 +156,7 @@ def run_file(path: Path, out_report: Path | None, mode: str) -> dict[str, Any]:
         res_base = {"passed": 0, "failed": 0, "sessions": []}
         for sess in sessions:
             res_base["sessions"].append(
-                _run_session(client, conn, sess, use_memory=False, results=res_base, token_samples=token_samples_b)
+                _run_session(client, conn, sess, use_memory=False, results=res_base, token_samples=token_samples_b, turn_sleep=turn_sleep)
             )
         out["baseline_last_n"] = res_base
 
@@ -199,6 +212,12 @@ def main() -> int:
         default="both",
         help="Run Mnemo memory, last-N baseline, or both for comparison",
     )
+    parser.add_argument(
+        "--turn-sleep",
+        type=float,
+        default=0.0,
+        help="Seconds to sleep between turns (use ~8 on Groq free tier to avoid TPM limits)",
+    )
     args = parser.parse_args()
 
     if not args.json_path.is_file():
@@ -209,7 +228,7 @@ def main() -> int:
     if report_path is None and args.mode == "both":
         report_path = ROOT / "eval" / "results" / "report.json"
 
-    r = run_file(args.json_path, report_path, args.mode)
+    r = run_file(args.json_path, report_path, args.mode, turn_sleep=args.turn_sleep)
 
     if args.mode == "both" and r.get("comparison"):
         print(json.dumps(r["comparison"], indent=2))

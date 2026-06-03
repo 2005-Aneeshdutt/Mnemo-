@@ -1,0 +1,143 @@
+{
+  "version": 2,
+  "description": "Long-session memory stress test (30-turn sessions). Core facts are stated in turns 1-5 and are OUTSIDE the 12-turn baseline window when checks fire at turns 25-30. Short-range facts at turns 21-23 are inside the window. Expected: memory ~83%, baseline ~33%.",
+  "baseline_last_n": 12,
+  "sessions": [
+    {
+      "id": "elena_long",
+      "tenant_id": "eval",
+      "turns": [
+        "Hi, my name is Elena Vasquez and I work as a freelance graphic designer.",
+        "I am based in Seattle, Washington.",
+        "My primary client is a biotech startup called Vantage Labs.",
+        "I have two cats named Sable and Finn.",
+        "My standard hourly rate is ninety-five dollars.",
+        "What tools do you recommend for UI design work?",
+        "How should I structure a client onboarding process?",
+        "What makes a good logo design?",
+        "How should I price a brand identity project?",
+        "How do I build a strong freelance portfolio?",
+        "What are the most important typography rules?",
+        "How do I communicate design decisions to non-designers?",
+        "How do I stay current with design trends?",
+        "What contracts should a freelance designer have?",
+        "How do I handle scope creep on a fixed-price project?",
+        "How do I find new clients when referrals slow down?",
+        "What should a design proposal include?",
+        "How do I design for accessibility?",
+        "What is the role of white space in layout design?",
+        "How do I design a cohesive color palette?",
+        "I am currently working on a packaging redesign for a coffee brand called Dusk Roasters.",
+        "The Dusk Roasters deadline is the fifteenth of next month.",
+        "My favorite productivity tool is Notion.",
+        "Do you enjoy working from home full time?",
+        "What do you do when you feel creatively stuck?",
+        "Quick check — what city am I based in?",
+        "What are my two cats called?",
+        "Who is my primary client right now?",
+        "What project am I currently working on?",
+        "What is my favorite productivity tool?"
+      ],
+      "checks": [
+        {
+          "after_user_turn": 26,
+          "question": "What city is Elena based in?",
+          "answer_must_contain": ["Seattle"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 27,
+          "question": "What are Elena's cats called?",
+          "answer_must_contain": ["Sable", "Finn"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 28,
+          "question": "Who is Elena's primary client?",
+          "answer_must_contain": ["Vantage Labs"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 29,
+          "question": "What project is Elena working on?",
+          "answer_must_contain": ["Dusk Roasters"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 30,
+          "question": "What is Elena's productivity tool?",
+          "answer_must_contain": ["Notion"],
+          "answer_must_not_contain": []
+        }
+      ]
+    },
+    {
+      "id": "daniel_long",
+      "tenant_id": "eval",
+      "turns": [
+        "Hey, I am Daniel Chen and I work as a backend software engineer.",
+        "I work at a healthcare company called Meridian Health.",
+        "My primary programming language is Golang.",
+        "I grew up in Tucson, Arizona.",
+        "I have a golden retriever named Biscuit.",
+        "What is a good approach to REST API design?",
+        "How should I handle database migrations in production?",
+        "What is your take on microservices versus monoliths?",
+        "How do I write effective unit tests for backend code?",
+        "What observability stack do you recommend?",
+        "How do I optimize a slow SQL query?",
+        "What makes a good code review?",
+        "What are common mistakes in distributed systems design?",
+        "How do I document an API well?",
+        "What is a good incident response process?",
+        "How do I manage technical debt without stopping feature work?",
+        "What makes a good engineering culture?",
+        "How do I approach capacity planning?",
+        "What is the best way to onboard a new engineer?",
+        "What are best practices for secrets management?",
+        "I am currently rebuilding the analytics dashboard for our operations team.",
+        "The dashboard project uses PostgreSQL and is due by end of quarter.",
+        "My preferred editor is Neovim with LSP plugins.",
+        "Do you work remote or in an office?",
+        "What do you do outside of work to unwind?",
+        "What company did I say I work at?",
+        "What programming language do I primarily use?",
+        "What city did I grow up in?",
+        "What project am I currently working on?",
+        "What is my preferred code editor?"
+      ],
+      "checks": [
+        {
+          "after_user_turn": 26,
+          "question": "What company does Daniel work at?",
+          "answer_must_contain": ["Meridian"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 27,
+          "question": "What is Daniel's primary language?",
+          "answer_must_contain": ["Go"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 28,
+          "question": "What city did Daniel grow up in?",
+          "answer_must_contain": ["Tucson"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 29,
+          "question": "What project is Daniel working on?",
+          "answer_must_contain": ["dashboard"],
+          "answer_must_not_contain": []
+        },
+        {
+          "after_user_turn": 30,
+          "question": "What is Daniel's preferred editor?",
+          "answer_must_contain": ["Neovim"],
+          "answer_must_not_contain": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,35 +1,547 @@
 {
-  "_note": "Regenerate with: python eval/run_locomo.py eval/data/sample_locomo.json --report eval/results/report.json (requires GROQ_API_KEY). Metrics below are placeholders until you run locally.",
-  "file": "eval/data/sample_locomo.json",
+  "file": "eval\\data\\sample_locomo.json",
   "mode": "both",
   "mnemo_config": {
     "top_k": 12,
     "recent_messages": 12,
-    "embeddings_disabled": false,
-    "chat_model": "llama-3.3-70b-versatile"
+    "embeddings_disabled": true,
+    "chat_model": "llama-3.1-8b-instant"
   },
   "memory": {
-    "passed": 0,
-    "failed": 0,
-    "sessions": [],
-    "context_token_samples": []
+    "passed": 21,
+    "failed": 1,
+    "sessions": [
+      {
+        "id": "facts_and_places",
+        "mode": "memory",
+        "checks": [
+          {
+            "after_user_turn": 4,
+            "question": "What city did I say I grew up in?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You said you grew up in Austin, Texas."
+          },
+          {
+            "after_user_turn": 7,
+            "question": "Where do I work and what bus route?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You work at City General Hospital as a nurse practitioner, and you use route 42 most often when commuting to work by bus."
+          },
+          {
+            "after_user_turn": 10,
+            "question": "Coffee order?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You mentioned it earlier: your usual coffee order is an oat milk latte with no sugar."
+          },
+          {
+            "after_user_turn": 12,
+            "question": "Pet names?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "When you mention pets, I know you have a cat named Pixel and a dog named Nova."
+          },
+          {
+            "after_user_turn": 14,
+            "question": "Move to where and when?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "According to our previous conversation, you are planning to move to Denver, and the move is scheduled for June."
+          },
+          {
+            "after_user_turn": 17,
+            "question": "Emergency contact and pharmacy?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "Your emergency contact is Maya, who lives in Boulder, and you use Maple Pharmacy on 5th Street for your prescriptions."
+          },
+          {
+            "after_user_turn": 20,
+            "question": "Work email domain?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You mentioned that your work email address ends with @citygeneral.org."
+          },
+          {
+            "after_user_turn": 22,
+            "question": "Dietary restriction?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You stated a personal dietary restriction of not eating pork."
+          },
+          {
+            "after_user_turn": 24,
+            "question": "Wake up time weekdays?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You wake up around 6:30 on weekdays."
+          }
+        ]
+      },
+      {
+        "id": "preferences",
+        "mode": "memory",
+        "checks": [
+          {
+            "after_user_turn": 5,
+            "question": "Language and DB?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You prefer Python as your scripting language and use SQLite for local data storage."
+          },
+          {
+            "after_user_turn": 8,
+            "question": "UI preferences summary?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You prefer dark mode UIs and system default fonts over custom web fonts."
+          },
+          {
+            "after_user_turn": 11,
+            "question": "Estimates?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You mentioned that when you ask for estimates, I should provide ranges rather than exact numbers."
+          },
+          {
+            "after_user_turn": 13,
+            "question": "Timezone?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You are in the Central Time (US) zone."
+          }
+        ]
+      },
+      {
+        "id": "corrections",
+        "mode": "memory",
+        "checks": [
+          {
+            "after_user_turn": 4,
+            "question": "Model year after correction?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "Your car is a 2020 Honda Civic in silver."
+          },
+          {
+            "after_user_turn": 6,
+            "question": "Plate prefix?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "The correct license plate prefix that I should remember for your car is QRX."
+          },
+          {
+            "after_user_turn": 8,
+            "question": "Transmission?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "The transmission type I should remember for your car is automatic."
+          },
+          {
+            "after_user_turn": 10,
+            "question": "Parking location?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You now park in garage level B2."
+          }
+        ]
+      },
+      {
+        "id": "long_recall",
+        "mode": "memory",
+        "checks": [
+          {
+            "after_user_turn": 6,
+            "question": "Codename and staging URL?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "The project codename is Nightingale, and the staging API base URL is https://staging.example.internal."
+          },
+          {
+            "after_user_turn": 9,
+            "question": "Region?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You specified the default region for deploys in the Nightingale project as us-east-1."
+          },
+          {
+            "after_user_turn": 11,
+            "question": "P1 meaning?",
+            "ok": false,
+            "reasons": [
+              "missing: 'page'"
+            ],
+            "reply_preview": "In your notes, a P1 incident is described as a critical issue that requires immediate attention. You've also noted that it requires prompt attention, and that it's a response procedure."
+          },
+          {
+            "after_user_turn": 13,
+            "question": "Budget?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You mentioned earlier that the budget cap for the Nightingale project is $500."
+          },
+          {
+            "after_user_turn": 15,
+            "question": "Who is my director?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "Your director is Director Chen."
+          }
+        ]
+      }
+    ],
+    "context_token_samples": [
+      {
+        "session": "facts_and_places",
+        "after_turn": 4,
+        "memory_prompt": 640,
+        "baseline_last_n_prompt": 311,
+        "full_history_prompt": 311
+      },
+      {
+        "session": "facts_and_places",
+        "after_turn": 7,
+        "memory_prompt": 757,
+        "baseline_last_n_prompt": 451,
+        "full_history_prompt": 451
+      },
+      {
+        "session": "facts_and_places",
+        "after_turn": 10,
+        "memory_prompt": 715,
+        "baseline_last_n_prompt": 366,
+        "full_history_prompt": 621
+      },
+      {
+        "session": "facts_and_places",
+        "after_turn": 12,
+        "memory_prompt": 675,
+        "baseline_last_n_prompt": 370,
+        "full_history_prompt": 690
+      },
+      {
+        "session": "facts_and_places",
+        "after_turn": 14,
+        "memory_prompt": 659,
+        "baseline_last_n_prompt": 352,
+        "full_history_prompt": 786
+      },
+      {
+        "session": "facts_and_places",
+        "after_turn": 17,
+        "memory_prompt": 639,
+        "baseline_last_n_prompt": 320,
+        "full_history_prompt": 916
+      },
+      {
+        "session": "facts_and_places",
+        "after_turn": 20,
+        "error": "float() argument must be a string or a real number, not 'NoneType'"
+      },
+      {
+        "session": "facts_and_places",
+        "after_turn": 22,
+        "memory_prompt": 617,
+        "baseline_last_n_prompt": 327,
+        "full_history_prompt": 1128
+      },
+      {
+        "session": "facts_and_places",
+        "after_turn": 24,
+        "memory_prompt": 580,
+        "baseline_last_n_prompt": 275,
+        "full_history_prompt": 1174
+      },
+      {
+        "session": "preferences",
+        "after_turn": 5,
+        "memory_prompt": 802,
+        "baseline_last_n_prompt": 451,
+        "full_history_prompt": 451
+      },
+      {
+        "session": "preferences",
+        "after_turn": 8,
+        "memory_prompt": 1109,
+        "baseline_last_n_prompt": 785,
+        "full_history_prompt": 831
+      },
+      {
+        "session": "preferences",
+        "after_turn": 11,
+        "memory_prompt": 1198,
+        "baseline_last_n_prompt": 848,
+        "full_history_prompt": 1240
+      },
+      {
+        "session": "preferences",
+        "after_turn": 13,
+        "memory_prompt": 1212,
+        "baseline_last_n_prompt": 877,
+        "full_history_prompt": 1469
+      },
+      {
+        "session": "corrections",
+        "after_turn": 4,
+        "memory_prompt": 720,
+        "baseline_last_n_prompt": 411,
+        "full_history_prompt": 411
+      },
+      {
+        "session": "corrections",
+        "after_turn": 6,
+        "memory_prompt": 920,
+        "baseline_last_n_prompt": 585,
+        "full_history_prompt": 585
+      },
+      {
+        "session": "corrections",
+        "after_turn": 8,
+        "memory_prompt": 986,
+        "baseline_last_n_prompt": 656,
+        "full_history_prompt": 761
+      },
+      {
+        "session": "corrections",
+        "after_turn": 10,
+        "memory_prompt": 892,
+        "baseline_last_n_prompt": 579,
+        "full_history_prompt": 936
+      },
+      {
+        "session": "long_recall",
+        "after_turn": 6,
+        "memory_prompt": 1080,
+        "baseline_last_n_prompt": 675,
+        "full_history_prompt": 675
+      },
+      {
+        "session": "long_recall",
+        "after_turn": 9,
+        "memory_prompt": 1113,
+        "baseline_last_n_prompt": 736,
+        "full_history_prompt": 933
+      },
+      {
+        "session": "long_recall",
+        "after_turn": 11,
+        "memory_prompt": 954,
+        "baseline_last_n_prompt": 623,
+        "full_history_prompt": 1084
+      },
+      {
+        "session": "long_recall",
+        "after_turn": 13,
+        "memory_prompt": 919,
+        "baseline_last_n_prompt": 550,
+        "full_history_prompt": 1204
+      },
+      {
+        "session": "long_recall",
+        "after_turn": 15,
+        "memory_prompt": 757,
+        "baseline_last_n_prompt": 407,
+        "full_history_prompt": 1286
+      }
+    ]
   },
   "baseline_last_n": {
-    "passed": 0,
+    "passed": 22,
     "failed": 0,
-    "sessions": []
+    "sessions": [
+      {
+        "id": "facts_and_places",
+        "mode": "baseline_last_n",
+        "checks": [
+          {
+            "after_user_turn": 4,
+            "question": "What city did I say I grew up in?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You said you grew up in Austin, Texas."
+          },
+          {
+            "after_user_turn": 7,
+            "question": "Where do I work and what bus route?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You work at City General Hospital and you typically take bus route 42."
+          },
+          {
+            "after_user_turn": 10,
+            "question": "Coffee order?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "Your usual coffee order is an oat milk latte with no sugar."
+          },
+          {
+            "after_user_turn": 12,
+            "question": "Pet names?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "Your pets' names are Pixel (the cat) and Nova (the dog)."
+          },
+          {
+            "after_user_turn": 14,
+            "question": "Move to where and when?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You're planning to move to Denver, and the move is set for next June."
+          },
+          {
+            "after_user_turn": 17,
+            "question": "Emergency contact and pharmacy?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "Your emergency contact is your sister Maya, who lives in Boulder, and you use Maple Pharmacy on 5th Street for your prescriptions."
+          },
+          {
+            "after_user_turn": 20,
+            "question": "Work email domain?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "Your work email's domain is @citygeneral.org."
+          },
+          {
+            "after_user_turn": 22,
+            "question": "Dietary restriction?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You stated you do not eat pork for personal reasons."
+          },
+          {
+            "after_user_turn": 24,
+            "question": "Wake up time weekdays?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You wake up around 6:30 AM on weekdays."
+          }
+        ]
+      },
+      {
+        "id": "preferences",
+        "mode": "baseline_last_n",
+        "checks": [
+          {
+            "after_user_turn": 5,
+            "question": "Language and DB?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You mentioned Python as your preferred programming language and SQLite as your preferred database."
+          },
+          {
+            "after_user_turn": 8,
+            "question": "UI preferences summary?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You prefer dark mode UIs and system default fonts over custom web fonts."
+          },
+          {
+            "after_user_turn": 11,
+            "question": "Estimates?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You said you prefer it when I give estimates with ranges, rather than providing fake precision."
+          },
+          {
+            "after_user_turn": 13,
+            "question": "Timezone?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You are in the Central Time (US) timezone."
+          }
+        ]
+      },
+      {
+        "id": "corrections",
+        "mode": "baseline_last_n",
+        "checks": [
+          {
+            "after_user_turn": 4,
+            "question": "Model year after correction?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "Your car is a 2020 Honda Civic."
+          },
+          {
+            "after_user_turn": 6,
+            "question": "Plate prefix?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "I'll remember that the correct license plate prefix for your car is QRX."
+          },
+          {
+            "after_user_turn": 8,
+            "question": "Transmission?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "I should remember that your 2020 Honda Civic has an automatic transmission."
+          },
+          {
+            "after_user_turn": 10,
+            "question": "Parking location?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You park in garage level B2."
+          }
+        ]
+      },
+      {
+        "id": "long_recall",
+        "mode": "baseline_last_n",
+        "checks": [
+          {
+            "after_user_turn": 6,
+            "question": "Codename and staging URL?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "The project codename is Nightingale, and the staging API base URL is https://staging.example.internal."
+          },
+          {
+            "after_user_turn": 9,
+            "question": "Region?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "You specified us-east-1 as the default region for deploys."
+          },
+          {
+            "after_user_turn": 11,
+            "question": "P1 meaning?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "In your notes, P1 means page immediately, indicating a critical incident that requires immediate attention."
+          },
+          {
+            "after_user_turn": 13,
+            "question": "Budget?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "The budget cap for the experiment was $500."
+          },
+          {
+            "after_user_turn": 15,
+            "question": "Who is my director?",
+            "ok": true,
+            "reasons": [],
+            "reply_preview": "Your director is Director Chen."
+          }
+        ]
+      }
+    ]
   },
   "comparison": {
-    "memory_pass_rate": null,
-    "baseline_pass_rate": null,
-    "memory_passed": 0,
-    "memory_failed": 0,
-    "baseline_passed": 0,
+    "memory_pass_rate": 0.9545,
+    "baseline_pass_rate": 1.0,
+    "memory_passed": 21,
+    "memory_failed": 1,
+    "baseline_passed": 22,
     "baseline_failed": 0,
     "approx_prompt_tokens_avg": {
-      "memory_retrieval": null,
-      "baseline_last_n_only": null,
-      "hypothetical_full_history": null
+      "memory_retrieval": 854,
+      "baseline_last_n_only": 522,
+      "hypothetical_full_history": 854
     }
   }
 }
