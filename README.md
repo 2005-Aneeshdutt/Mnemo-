@@ -108,12 +108,6 @@ python main.py --no-embeddings
 
 Tool calls and memory activity are printed in real time:
 
-```
-You> what's my favorite color?
-  [memory] searching memory: 'favorite color'
-           → [3] fact: user's favorite color is blue
-AI> Your favorite color is blue.
-```
 
 Built-in commands: `/memory`, `/triples`, `/clear`, `/help`, `/quit`
 
