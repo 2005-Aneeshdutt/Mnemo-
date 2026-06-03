@@ -53,7 +53,6 @@ def _score_rows(
     """Hybrid dense + lexical + recency for an arbitrary row list."""
     if not rows:
         return []
-    max_id = max(int(r["id"]) for r in rows)
 
     dense_raw: list[float] = []
     for r in rows:
@@ -64,7 +63,11 @@ def _score_rows(
             dense_raw.append(0.0)
 
     lex_raw = [keyword_score(query, r["content"] or "") for r in rows]
-    rec_raw = [int(r["id"]) / max_id if max_id else 0.0 for r in rows]
+
+    timestamps = [float(r["created_at"]) for r in rows]
+    min_ts, max_ts = min(timestamps), max(timestamps)
+    span = max_ts - min_ts
+    rec_raw = [(t - min_ts) / span if span > 1e-9 else 0.0 for t in timestamps]
 
     nd = _normalize_scores(dense_raw)
     nl = _normalize_scores(lex_raw)
@@ -147,16 +150,16 @@ def retrieve_hybrid(
 
 def retrieve_top_k(rows: list[Row], query: str, k: int, recency_weight: float = 0.15) -> list[Row]:
     """Lexical-only top-k (no client)."""
-    del recency_weight
     if not rows or k <= 0:
         return []
-    max_id = max(int(r["id"]) for r in rows)
+    timestamps = [float(r["created_at"]) for r in rows]
+    min_ts, max_ts = min(timestamps), max(timestamps)
+    span = max_ts - min_ts
     scored: list[tuple[float, Row]] = []
-    for r in rows:
+    for i, r in enumerate(rows):
         base = keyword_score(query, r["content"])
-        rid = int(r["id"])
-        recency = rid / max_id if max_id else 0.0
-        score = base + 0.15 * recency
+        recency = (timestamps[i] - min_ts) / span if span > 1e-9 else 0.0
+        score = base + recency_weight * recency
         scored.append((score, r))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [r for _, r in scored[:k]]

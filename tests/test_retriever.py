@@ -7,10 +7,12 @@ def test_keyword_score_basic() -> None:
 
 
 def test_lexical_top_k_order() -> None:
+    import time
+    now = time.time()
     rows = [
-        {"id": 1, "content": "python asyncio", "embedding": None},
-        {"id": 2, "content": "rust ownership", "embedding": None},
-        {"id": 3, "content": "python typing", "embedding": None},
+        {"id": 1, "content": "python asyncio", "embedding": None, "created_at": now - 2},
+        {"id": 2, "content": "rust ownership", "embedding": None, "created_at": now - 1},
+        {"id": 3, "content": "python typing", "embedding": None, "created_at": now},
     ]
     out = retrieve_top_k(rows, "python", 2)  # type: ignore[arg-type]
     assert len(out) == 2

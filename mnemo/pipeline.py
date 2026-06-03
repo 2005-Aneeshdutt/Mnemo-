@@ -6,9 +6,27 @@ from typing import Any
 import numpy as np
 from groq import Groq
 
+import numpy as np
+
 from mnemo import config
 from mnemo import embeddings as emb
 from mnemo import store
+
+_DEDUP_THRESHOLD = 0.92
+
+
+def _blob_to_vec(blob: bytes | None) -> np.ndarray | None:
+    if not blob:
+        return None
+    arr = np.frombuffer(blob, dtype=np.float32)
+    return arr if arr.size else None
+
+
+def _is_duplicate(new_vec: np.ndarray, existing_vecs: list[np.ndarray]) -> bool:
+    for ev in existing_vecs:
+        if emb.cosine_similarity(new_vec, ev) >= _DEDUP_THRESHOLD:
+            return True
+    return False
 
 
 def _triple_line(subj: str, pred: str, obj: str) -> str:
@@ -67,21 +85,30 @@ def persist_augmentation(
     if not config.EMBEDDINGS_DISABLED:
         vec_list, err = emb.try_embed_texts(client, texts_to_embed)
 
+    # Build list of existing embedding vectors once for dedup checks (facts/summaries only).
+    existing_rows = store.list_chunks_for_session(conn, session_id)
+    existing_vecs: list[np.ndarray] = [
+        v for r in existing_rows if (v := _blob_to_vec(r["embedding"])) is not None
+    ]
+
     for i, meta in enumerate(rows_meta):
         kind, content, subj, pred, obj = meta
         blob = None
+        new_vec: np.ndarray | None = None
         if vec_list is not None and i < len(vec_list):
-            blob = emb.vec_to_blob(vec_list[i])
-        store.add_memory_unit(
-            conn,
-            session_id,
-            kind,
-            content,
-            subj=subj,
-            pred=pred,
-            obj=obj,
-            embedding=blob,
-        )
+            new_vec = vec_list[i]
+            blob = emb.vec_to_blob(new_vec)
+
+        if kind == "triple" and subj and pred and obj:
+            # Triples use upsert; contradiction resolution handles dedup.
+            store.upsert_triple(conn, session_id, subj, pred, obj, content, embedding=blob)
+        else:
+            # Skip near-duplicate facts/summaries when embeddings are available.
+            if new_vec is not None and _is_duplicate(new_vec, existing_vecs):
+                continue
+            store.add_memory_unit(conn, session_id, kind, content, subj=subj, pred=pred, obj=obj, embedding=blob)
+            if new_vec is not None:
+                existing_vecs.append(new_vec)
 
     if err:
         counts["_embed_error"] = err
