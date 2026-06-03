@@ -8,7 +8,8 @@ from typing import Any
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from groq import Groq
+from fastapi.responses import StreamingResponse
+from mnemo.client import create_client
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -16,7 +17,7 @@ from slowapi.util import get_remote_address
 
 from mnemo import auth as auth_mod
 from mnemo import config
-from mnemo.agent import ChatState, chat_turn
+from mnemo.agent import ChatState, chat_turn, chat_turn_stream
 from mnemo import store
 from mnemo.tenancy import scope_session
 
@@ -41,10 +42,9 @@ class ChatResponse(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if not config.GROQ_API_KEY:
-        raise RuntimeError("GROQ_API_KEY is not set")
-    os.environ.setdefault("GROQ_API_KEY", config.GROQ_API_KEY)
-    app.state.client = Groq()
+    if not config.GROQ_API_KEY and not config.GEMINI_API_KEY:
+        raise RuntimeError("Set GROQ_API_KEY or GEMINI_API_KEY in your .env file.")
+    app.state.client = create_client()
     app.state.conn = store.connect(config.DB_PATH)
     store.init_schema(app.state.conn)
     app.state.chat_states: dict[str, ChatState] = {}
@@ -86,7 +86,7 @@ def post_chat(
 
     states: dict[str, ChatState] = request.app.state.chat_states
     if scoped not in states:
-        states[scoped] = ChatState(session_id=scoped)
+        states[scoped] = ChatState(session_id=scoped, tenant_id=tenant)
     state = states[scoped]
     try:
         reply = chat_turn(request.app.state.client, request.app.state.conn, state, req.message)
@@ -94,6 +94,43 @@ def post_chat(
         logging.exception("POST /v1/chat failed")
         raise HTTPException(status_code=500, detail=str(e)) from e
     return ChatResponse(reply=reply)
+
+
+@app.post(
+    "/v1/chat/stream",
+    dependencies=[Depends(auth_mod.require_api_key)],
+    response_class=StreamingResponse,
+)
+@limiter.limit(config.RATE_LIMIT_CHAT)
+def post_chat_stream(
+    request: Request,
+    req: ChatRequest,
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-ID"),
+) -> StreamingResponse:
+    tenant = _resolve_tenant(x_tenant_id, req.tenant_id)
+    try:
+        scoped = scope_session(tenant, req.session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    states: dict[str, ChatState] = request.app.state.chat_states
+    if scoped not in states:
+        states[scoped] = ChatState(session_id=scoped, tenant_id=tenant)
+    state = states[scoped]
+
+    client = request.app.state.client
+    conn = request.app.state.conn
+
+    def _generate():
+        try:
+            for chunk in chat_turn_stream(client, conn, state, req.message):
+                yield f"data: {chunk}\n\n"
+        except Exception as e:
+            logging.exception("POST /v1/chat/stream failed")
+            yield f"data: [ERROR] {e}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(_generate(), media_type="text/event-stream")
 
 
 @app.get(
@@ -150,9 +187,47 @@ def delete_memory(
     return {"tenant_id": tenant, "session_id": session_id, "deleted": n}
 
 
+@app.get(
+    "/v1/users/{tenant_id}/profile",
+    dependencies=[Depends(auth_mod.require_api_key)],
+)
+@limiter.limit(config.RATE_LIMIT_DEFAULT)
+def get_profile(
+    request: Request,
+    tenant_id: str,
+) -> dict[str, Any]:
+    rows = store.list_profile_chunks(request.app.state.conn, tenant_id)
+    items = [
+        {
+            "id": r["id"],
+            "kind": r["kind"],
+            "content": r["content"],
+            "subject": r["subj"],
+            "predicate": r["pred"],
+            "object": r["obj"],
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
+    return {"tenant_id": tenant_id, "count": len(items), "items": items}
+
+
+@app.delete(
+    "/v1/users/{tenant_id}/profile",
+    dependencies=[Depends(auth_mod.require_api_key)],
+)
+@limiter.limit(config.RATE_LIMIT_DEFAULT)
+def delete_profile(
+    request: Request,
+    tenant_id: str,
+) -> dict[str, Any]:
+    n = store.clear_profile(request.app.state.conn, tenant_id)
+    return {"tenant_id": tenant_id, "deleted": n}
+
+
 def main() -> int:
-    if not config.GROQ_API_KEY:
-        print("Set GROQ_API_KEY in environment or .env file.", file=sys.stderr)
+    if not config.GROQ_API_KEY and not config.GEMINI_API_KEY:
+        print("Set GROQ_API_KEY or GEMINI_API_KEY in environment or .env file.", file=sys.stderr)
         return 1
     uvicorn.run(
         "mnemo.server:app",
