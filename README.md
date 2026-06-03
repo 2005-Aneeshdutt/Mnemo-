@@ -4,73 +4,83 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-Mnemo is a persistent memory layer for LLM agents. It converts dialogue into structured memories (facts, triples, summaries), stores them in SQLite, retrieves the best context using hybrid ranking, and injects that context back into generation.
-
-The goal is simple: better long-term recall without sending full conversation history every turn.
+Mnemo is a persistent memory layer for LLM agents. Rather than passively injecting retrieved context, Mnemo exposes memory as a set of tools the model actively calls — deciding when to recall, store, update, or delete facts. A background compaction agent periodically consolidates memories to maintain quality across long conversations.
 
 ## Table of Contents
 
 - [Why Mnemo](#why-mnemo)
-- [Core Capabilities](#core-capabilities)
 - [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Installation and Quick Start](#installation-and-quick-start)
+- [Features](#features)
+- [Benchmark](#benchmark)
+- [Quick Start](#quick-start)
 - [CLI Usage](#cli-usage)
 - [HTTP API](#http-api)
 - [Configuration](#configuration)
 - [Evaluation](#evaluation)
 - [Development](#development)
-- [Troubleshooting](#troubleshooting)
-- [Roadmap](#roadmap)
 - [License](#license)
 
 ## Why Mnemo
 
-Most chat systems either:
-- keep everything in prompt context (costly and noisy), or
-- keep too little context (poor recall).
+Standard approaches to LLM memory either send the full conversation history (expensive, noisy at scale) or truncate it (poor recall). Mnemo provides a structured alternative:
 
-Mnemo provides a middle path:
-- **Structured ingestion**: pull durable memory from each turn.
-- **Targeted retrieval**: fetch only context likely to help the current query.
-- **Scoped isolation**: separate memory per tenant and session (`tenant::session`).
-- **Configurable quality/latency**: lexical-only mode, or dense + ANN for scale.
-
-## Core Capabilities
-
-| Area | Details |
-|------|---------|
-| **Memory extraction** | JSON extraction pipeline for facts, semantic triples, and turn summaries |
-| **Persistence** | SQLite-backed storage with session and tenant scoping |
-| **Retrieval** | Hybrid ranking (dense + lexical + recency) with optional FAISS ANN prefilter |
-| **Embeddings** | Groq embeddings with fallback model chain support |
-| **Interfaces** | Interactive CLI and FastAPI service |
-| **Operational quality** | Pytest suite and GitHub Actions CI |
+- **Active memory tools** — the model calls `recall`, `remember`, `forget`, and `update_fact` explicitly rather than receiving a passive memory dump.
+- **Cross-session user profiles** — durable facts (name, preferences, location) persist across all sessions under the same tenant, injected into every system prompt.
+- **Hybrid retrieval** — dense embedding similarity, lexical overlap, and recency are combined into a single score to surface the most relevant memories.
+- **Background compaction** — a second LLM pass runs every N turns, merging duplicates and resolving contradictions so memory quality stays stable as sessions grow.
+- **Streaming** — token-by-token output for both CLI and HTTP, with tool calls resolved synchronously before the reply streams.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph ingest [After each turn]
-    U[User + Assistant] --> E[Extractor JSON]
-    E --> P[Pipeline]
-    P --> DB[(SQLite)]
-    P --> Emb[Groq embeddings optional]
-  end
-  subgraph answer [Each question]
-    Q[User message] --> R[Retrieve top-K]
-    DB --> R
-    R --> C[Chat Groq]
-    C --> A[Assistant reply]
-  end
+```
+┌─────────────────────────────────────────────────────────┐
+│                    After each turn                       │
+│  User + Assistant → Extractor → Pipeline → SQLite DB    │
+│                                          → User Profile  │
+└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│               Every N turns (background)                 │
+│  SQLite DB → Compaction Agent → Condensed Memory DB     │
+└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    Each question                         │
+│  User → Tool-use loop → recall/remember/forget/update   │
+│                       → Final reply streams             │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## Prerequisites
+## Features
 
-- Python **3.11+** (CI runs on Python 3.12)
-- A [Groq](https://console.groq.com/) API key
+| Area | Details |
+|------|---------|
+| **Agentic tools** | `recall`, `remember`, `remember_profile`, `forget`, `update_fact` via LLM function-calling |
+| **User profile** | Cross-session facts scoped by tenant; always visible in system prompt |
+| **Memory extraction** | Per-turn extraction of facts, semantic triples, and turn summaries |
+| **Persistence** | SQLite with WAL mode; triple upsert for contradiction resolution; cosine-similarity deduplication |
+| **Retrieval** | Hybrid dense + lexical + recency scoring; optional FAISS ANN prefilter |
+| **Compaction** | Background LLM agent consolidates memory every N turns |
+| **Streaming** | SSE streaming for CLI and `/v1/chat/stream` endpoint |
+| **Multi-provider** | Supports Groq and Google Gemini; swap via environment variable |
+| **Interfaces** | Interactive CLI and FastAPI service with rate limiting and multi-tenant auth |
 
-## Installation and Quick Start
+## Benchmark
+
+Evaluated on a custom long-memory QA dataset using lexical-only retrieval mode:
+
+| Mode | Pass rate | Checks passed |
+|------|-----------|---------------|
+| **Mnemo memory** | **95.5%** | 21 / 22 |
+| Baseline (last-N only) | 100% | 22 / 22 |
+
+**Note:** These results are on short sessions (≤ 25 turns) where the baseline context window covers the full conversation. The benchmark dataset `eval/data/locomo_bench.json` contains 30-turn sessions specifically designed to stress-test long-range recall — where facts stated in turns 1–5 fall outside the 12-turn baseline window. Run it yourself:
+
+```bash
+python eval/run_locomo.py eval/data/locomo_bench.json --mode both
+```
+
+## Quick Start
+
+**Prerequisites:** Python 3.11+, a [Groq](https://console.groq.com) or [Gemini](https://aistudio.google.com/app/apikey) API key.
 
 ```bash
 git clone https://github.com/2005-Aneeshdutt/Mnemo-.git
@@ -78,190 +88,144 @@ cd Mnemo-
 python -m venv .venv
 ```
 
-Activate virtual environment:
-- **Windows (PowerShell):** `.\\.venv\\Scripts\\Activate.ps1`
-- **Unix/macOS:** `source .venv/bin/activate`
-
-Install and configure:
+Activate:
+- **Windows:** `.\.venv\Scripts\Activate.ps1`
+- **macOS/Linux:** `source .venv/bin/activate`
 
 ```bash
 pip install -r requirements.txt
 cp .env.example .env
+# Set GROQ_API_KEY or GEMINI_API_KEY in .env
 ```
-
-Set `GROQ_API_KEY` in `.env` as a single line value (no quotes/backticks).
 
 ## CLI Usage
 
-Start the CLI:
-
 ```bash
 python main.py
-```
-
-Options:
-
-```bash
 python main.py --tenant acme --session support-42
 python main.py --no-embeddings
 ```
 
-Built-in commands in CLI session:
-- `/memory` show stored memories for the scoped session
-- `/triples` show extracted triples only
-- `/clear` clear memory for the current session
-- `/help` list commands
-- `/quit` exit
+Tool calls and memory activity are printed in real time:
+
+```
+You> what's my favorite color?
+  [memory] searching memory: 'favorite color'
+           → [3] fact: user's favorite color is blue
+AI> Your favorite color is blue.
+```
+
+Built-in commands: `/memory`, `/triples`, `/clear`, `/help`, `/quit`
 
 ## HTTP API
 
-Run API server:
-
 ```bash
 python main.py serve
+# Docs at http://127.0.0.1:8765/docs
 ```
-
-OpenAPI docs: `http://127.0.0.1:8765/docs`
-
-If `MNEMO_API_KEY` is set, provide one of:
-- `X-API-Key: <token>`
-- `Authorization: Bearer <token>`
-
-### Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/health` | Liveness check |
-| `POST` | `/v1/chat` | Chat turn with retrieval + memory write |
-| `GET` | `/v1/sessions/{session_id}/memory` | List stored memory rows for a session |
-| `DELETE` | `/v1/sessions/{session_id}/memory` | Delete stored memory rows for a session |
+| `POST` | `/v1/chat` | Chat turn with retrieval and memory write |
+| `POST` | `/v1/chat/stream` | Streaming chat (SSE) |
+| `GET` | `/v1/sessions/{session_id}/memory` | List session memory |
+| `DELETE` | `/v1/sessions/{session_id}/memory` | Clear session memory |
+| `GET` | `/v1/users/{tenant_id}/profile` | List user profile facts |
+| `DELETE` | `/v1/users/{tenant_id}/profile` | Clear user profile |
 
 ### Examples
 
-Health:
-
 ```bash
-curl -s http://127.0.0.1:8765/health
-```
-
-Chat:
-
-```bash
+# Chat
 curl -s http://127.0.0.1:8765/v1/chat \
   -H "Content-Type: application/json" \
-  -d "{\"tenant_id\":\"demo\",\"session_id\":\"thread-1\",\"message\":\"Remember my favorite color is blue.\"}"
-```
+  -d '{"tenant_id":"demo","session_id":"s1","message":"My name is Aneesh."}'
 
-List memory:
+# Streaming chat
+curl -s http://127.0.0.1:8765/v1/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{"tenant_id":"demo","session_id":"s1","message":"What is my name?"}'
 
-```bash
-curl -s http://127.0.0.1:8765/v1/sessions/thread-1/memory \
-  -H "X-Tenant-ID: demo"
-```
-
-Delete memory:
-
-```bash
-curl -s -X DELETE http://127.0.0.1:8765/v1/sessions/thread-1/memory \
-  -H "X-Tenant-ID: demo"
+# View user profile
+curl -s http://127.0.0.1:8765/v1/users/demo/profile
 ```
 
 ## Configuration
 
-Copy `.env.example` to `.env`. Mnemo supports both `MNEMO_*` keys and legacy `MEMORI_*` fallback keys.
+Copy `.env.example` to `.env`.
 
-### Required
-
-| Variable | Purpose |
-|----------|---------|
-| `GROQ_API_KEY` | Required for chat/extraction (and embeddings unless disabled). |
-
-### Model Selection
+### Provider
 
 | Variable | Purpose |
 |----------|---------|
-| `GROQ_MODEL` | Chat model override |
-| `GROQ_EXTRACT_MODEL` | Extraction model override |
-| `GROQ_EMBED_MODEL` | Primary embedding model |
-| `GROQ_EMBED_MODEL_FALLBACKS` | Comma-separated fallback embedding models |
+| `GROQ_API_KEY` | Groq API key (used if `GEMINI_API_KEY` is not set) |
+| `GEMINI_API_KEY` | Google Gemini API key (takes priority over Groq) |
+| `GROQ_MODEL` | Chat model name (e.g. `gemini-2.0-flash`, `llama-3.3-70b-versatile`) |
+| `GROQ_EXTRACT_MODEL` | Extraction model (default: `llama-3.1-8b-instant`) |
+| `GROQ_EMBED_MODEL` | Embedding model (default: `nomic-embed-text-v1_5`) |
 
-### Retrieval and Memory
+### Memory and Retrieval
 
-| Variable | Purpose |
-|----------|---------|
-| `MNEMO_NO_EMBEDDINGS` | `1` for lexical-only retrieval |
-| `MNEMO_TOP_K` | Number of retrieved memory items |
-| `MNEMO_RECENT_MSG` | Recent chat turns retained in short-term context |
-| `MNEMO_W_DENSE` | Dense similarity weight |
-| `MNEMO_W_LEX` | Lexical match weight |
-| `MNEMO_W_REC` | Recency weight |
-| `MNEMO_DB_PATH` | SQLite path (default: `data/memory.db`) |
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MNEMO_TOP_K` | `12` | Retrieved memories per turn |
+| `MNEMO_RECENT_MSG` | `12` | Recent turns in short-term context |
+| `MNEMO_MEMORY_MAX_ROWS` | `500` | Max rows loaded for retrieval |
+| `MNEMO_NO_EMBEDDINGS` | `0` | Set `1` for lexical-only retrieval |
+| `MNEMO_TOOL_USE` | `1` | Set `0` to disable agentic tool use |
+| `MNEMO_W_DENSE` | `0.5` | Dense similarity weight |
+| `MNEMO_W_LEX` | `0.35` | Lexical match weight |
+| `MNEMO_W_REC` | `0.15` | Recency weight |
+| `MNEMO_DB_PATH` | `data/memory.db` | SQLite database path |
 
-### ANN (FAISS) Tuning
+### Compaction
 
-| Variable | Purpose |
-|----------|---------|
-| `MNEMO_ANN_ENABLED` | Enable ANN prefilter |
-| `MNEMO_ANN_MIN_ROWS` | Minimum vector rows before ANN is used |
-| `MNEMO_ANN_CANDIDATE_MULT` | Candidate multiplier relative to `TOP_K` |
-| `MNEMO_ANN_MIN_CANDIDATES` | Lower bound on ANN candidate set |
-| `MNEMO_ANN_MAX_CANDIDATES` | Upper bound on ANN candidate set |
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MNEMO_COMPACT_EVERY_N` | `20` | Compact after every N turns (0 = disabled) |
+| `MNEMO_COMPACT_MIN_ROWS` | `15` | Minimum stored rows before compaction fires |
 
-### API and Rate Limits
+### API Server
 
-| Variable | Purpose |
-|----------|---------|
-| `MNEMO_API_HOST` | API bind host |
-| `MNEMO_API_PORT` | API bind port |
-| `MNEMO_API_KEY` | Optional API key required by protected endpoints |
-| `MNEMO_RATE_LIMIT` | Default route rate limit |
-| `MNEMO_RATE_LIMIT_CHAT` | Chat endpoint rate limit |
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MNEMO_API_HOST` | `127.0.0.1` | Bind host |
+| `MNEMO_API_PORT` | `8765` | Bind port |
+| `MNEMO_API_KEY` | — | Optional bearer token for protected endpoints |
+| `MNEMO_RATE_LIMIT` | `120/minute` | Default route rate limit |
+| `MNEMO_RATE_LIMIT_CHAT` | `60/minute` | Chat endpoint rate limit |
 
 ## Evaluation
 
-Mnemo includes a LoCoMo-style evaluation harness with two modes:
-- **memory**: full Mnemo memory pipeline
-- **baseline**: last-N-only baseline
-
-Run:
-
 ```bash
-python eval/run_locomo.py eval/data/sample_locomo.json --mode both --report eval/results/report.json
+# Full comparison (memory vs last-N baseline)
+python eval/run_locomo.py eval/data/sample_locomo.json --mode both
+
+# Long-session stress test (30-turn sessions)
+python eval/run_locomo.py eval/data/locomo_bench.json --mode both
+
+# Recommended flags for free-tier API limits
+MNEMO_NO_EMBEDDINGS=1 MNEMO_TOOL_USE=0 MNEMO_COMPACT_EVERY_N=0 \
+  python eval/run_locomo.py eval/data/locomo_bench.json --mode both --turn-sleep 8
 ```
-
-Mode reference:
-
-| `--mode` | Behavior |
-|----------|----------|
-| `memory` | Mnemo retrieval + memory |
-| `baseline` | Last-*N* chat baseline (no persistent memory) |
-| `both` | Runs both and emits pass-rate comparison + optional prompt token estimates |
 
 ## Development
 
-Run tests:
-
 ```bash
-pytest -q
+pytest -q          # 29 tests
 ```
 
-CI runs on pushes and pull requests targeting `main`/`master`.
+CI runs on every push and pull request to `main`.
 
 ## Troubleshooting
 
-| Issue | What to try |
-|-------|-------------|
-| Missing API key | Set `GROQ_API_KEY` in `.env` and restart process |
-| Embedding failures | Use `MNEMO_NO_EMBEDDINGS=1` or fix embed model/fallbacks |
-| Unauthorized API requests | Ensure `MNEMO_API_KEY` matches `X-API-Key` or Bearer token |
-| `500` on `/v1/chat` | Verify dependencies and DB path; SQLite connection uses `check_same_thread=False` in current implementation |
-
-## Roadmap
-
-- Additional backing stores beyond SQLite
-- Stronger benchmark datasets and metrics dashboards
-- Retrieval diagnostics and explainability output
-- Production deployment guides (containers, observability, scaling)
+| Issue | Fix |
+|-------|-----|
+| No API key error | Set `GROQ_API_KEY` or `GEMINI_API_KEY` in `.env` |
+| Embedding 404 | Set `MNEMO_NO_EMBEDDINGS=1` or update `GROQ_EMBED_MODEL` |
+| Tool-use 400 errors | Set `MNEMO_TOOL_USE=0` if the model does not support function calling |
+| Rate limit 429/413 | Use `--turn-sleep 8` in eval; reduce `MNEMO_RECENT_MSG` |
 
 ## License
 
