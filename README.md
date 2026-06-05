@@ -1,6 +1,7 @@
 # Mnemo
 
 [![CI](https://github.com/2005-Aneeshdutt/Mnemo-/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/2005-Aneeshdutt/Mnemo-/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-56%20passing-brightgreen.svg)](#development)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
@@ -12,6 +13,7 @@ Mnemo is a persistent memory layer for LLM agents. Rather than passively injecti
 - [Architecture](#architecture)
 - [Features](#features)
 - [Benchmark](#benchmark)
+- [Observability](#observability)
 - [Quick Start](#quick-start)
 - [CLI Usage](#cli-usage)
 - [HTTP API](#http-api)
@@ -72,11 +74,76 @@ Evaluated on a custom long-memory QA dataset using lexical-only retrieval mode:
 | **Mnemo memory** | **95.5%** | 21 / 22 |
 | Baseline (last-N only) | 100% | 22 / 22 |
 
-**Note:** These results are on short sessions (≤ 25 turns) where the baseline context window covers the full conversation. The benchmark dataset `eval/data/locomo_bench.json` contains 30-turn sessions specifically designed to stress-test long-range recall — where facts stated in turns 1–5 fall outside the 12-turn baseline window. Run it yourself:
+**Token savings** — savings are negative early (memory overhead exceeds raw history) but grow as sessions outlast the `MNEMO_RECENT_MSG` window. Measured from `eval/data/sample_locomo.json` (all numbers from `eval/results/report.json`):
+
+| Turn | Memory-prompt tokens | Full-history tokens | Saved / turn |
+|------|---------------------|---------------------|--------------|
+| 10 | 715 | 621 | −94 (full history still fits) |
+| 14 | 659 | 786 | **+127** |
+| 17 | 639 | 916 | **+277** |
+| 22 | 617 | 1 128 | **+511** |
+| 24 | 580 | 1 174 | **+594** |
+
+Break-even is around **turn 12–14**. After that, savings compound: a 100-turn session saves ~40 000 tokens vs naively appending full history.
+
+**Note:** The benchmark dataset `eval/data/locomo_bench.json` contains 30-turn sessions specifically designed to stress-test long-range recall — where facts stated in turns 1–5 fall outside the 12-turn baseline window. Run it yourself:
 
 ```bash
 python eval/run_locomo.py eval/data/locomo_bench.json --mode both
 ```
+
+## Observability
+
+Mnemo exposes real-time production metrics out of the box — no extra dependencies required.
+
+### Prometheus scrape endpoint
+
+```
+GET /metrics
+```
+
+No authentication needed; safe to expose to your metrics scraper. Returns standard Prometheus text format:
+
+```
+# HELP mnemo_requests_total Total HTTP requests handled
+# TYPE mnemo_requests_total counter
+mnemo_requests_total{endpoint="/v1/chat",status="200"} 1428
+
+# HELP mnemo_request_duration_ms HTTP request latency in milliseconds
+# TYPE mnemo_request_duration_ms summary
+mnemo_request_duration_ms{endpoint="/v1/chat",quantile="0.5"} 38.4
+mnemo_request_duration_ms{endpoint="/v1/chat",quantile="0.95"} 112.7
+mnemo_request_duration_ms{endpoint="/v1/chat",quantile="0.99"} 198.3
+mnemo_request_duration_ms_count{endpoint="/v1/chat"} 1428
+mnemo_request_duration_ms_sum{endpoint="/v1/chat"} 74291.2
+
+# HELP mnemo_tokens_saved_total Approximate tokens saved by memory retrieval vs full history
+# TYPE mnemo_tokens_saved_total counter
+mnemo_tokens_saved_total 386240
+```
+
+### JSON metrics endpoint
+
+```
+GET /v1/metrics          (requires API key)
+```
+
+Returns the same data as a JSON object with structured histogram summaries (`count`, `sum`, `min`, `max`, `p50`, `p95`, `p99`). Useful for dashboards and alerting integrations.
+
+### Tracked metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `mnemo_requests_total` | counter | Requests per endpoint + HTTP status |
+| `mnemo_request_duration_ms` | summary | Latency p50 / p95 / p99 per endpoint |
+| `mnemo_tokens_saved_total` | counter | Tokens saved vs full-history injection |
+| `mnemo_memory_hits_total` | counter | Memory chunks returned by retrieval |
+| `mnemo_memory_misses_total` | counter | Retrieval queries returning zero results |
+| `mnemo_memories_written_total` | counter | Memory units persisted, by kind (fact/triple/summary) |
+| `mnemo_compactions_total` | counter | Background compaction runs completed |
+| `mnemo_compaction_rows_removed_total` | counter | Rows removed by compaction |
+
+All metrics are thread-safe, zero-dependency (no Prometheus client lib needed), and reset on server restart.
 
 ## Quick Start
 
@@ -118,15 +185,17 @@ python main.py serve
 # Docs at http://127.0.0.1:8765/docs
 ```
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Liveness check |
-| `POST` | `/v1/chat` | Chat turn with retrieval and memory write |
-| `POST` | `/v1/chat/stream` | Streaming chat (SSE) |
-| `GET` | `/v1/sessions/{session_id}/memory` | List session memory |
-| `DELETE` | `/v1/sessions/{session_id}/memory` | Clear session memory |
-| `GET` | `/v1/users/{tenant_id}/profile` | List user profile facts |
-| `DELETE` | `/v1/users/{tenant_id}/profile` | Clear user profile |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/health` | — | Liveness check |
+| `GET` | `/metrics` | — | Prometheus text-format scrape endpoint |
+| `GET` | `/v1/metrics` | API key | JSON metrics snapshot |
+| `POST` | `/v1/chat` | API key | Chat turn with retrieval and memory write |
+| `POST` | `/v1/chat/stream` | API key | Streaming chat (SSE) |
+| `GET` | `/v1/sessions/{session_id}/memory` | API key | List session memory |
+| `DELETE` | `/v1/sessions/{session_id}/memory` | API key | Clear session memory |
+| `GET` | `/v1/users/{tenant_id}/profile` | API key | List user profile facts |
+| `DELETE` | `/v1/users/{tenant_id}/profile` | API key | Clear user profile |
 
 ### Examples
 
@@ -207,7 +276,7 @@ MNEMO_NO_EMBEDDINGS=1 MNEMO_TOOL_USE=0 MNEMO_COMPACT_EVERY_N=0 \
 ## Development
 
 ```bash
-pytest -q          # 29 tests
+pytest -q          # 56 tests across 9 modules
 ```
 
 CI runs on every push and pull request to `main`.
