@@ -10,6 +10,7 @@ import numpy as np
 
 from mnemo import config
 from mnemo import embeddings as emb
+from mnemo import metrics as metrics_mod
 from mnemo import store
 
 _DEDUP_THRESHOLD = 0.92
@@ -112,5 +113,10 @@ def persist_augmentation(
 
     if err:
         counts["_embed_error"] = err
+
+    for kind, n in [("summary", counts["summaries"]), ("triple", counts["triples"]), ("fact", counts["facts"])]:
+        if n:
+            metrics_mod.record_memory_write(kind, n)
+
     return counts
 

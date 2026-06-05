@@ -13,6 +13,7 @@ from mnemo.extractor import extract_memory
 from mnemo.pipeline import persist_augmentation
 from mnemo.retriever import retrieve_hybrid, retrieve_top_k
 from mnemo import store
+from mnemo import metrics as metrics_mod
 from mnemo.metrics import approx_tokens_from_text
 from mnemo import tools as memory_tools
 from mnemo import compactor
@@ -168,6 +169,15 @@ def estimate_context_tokens(
 # Agentic chat turn
 # ---------------------------------------------------------------------------
 
+def _record_token_savings(state: ChatState, picked: list) -> None:
+    """Record tokens saved by retrieval vs sending full history."""
+    full_chars = sum(len(m.get("content") or "") for m in state.messages)
+    sent_chars = sum(len(m.get("content") or "") for m in state.messages[-config.RECENT_MESSAGES:])
+    saved = max(0, (full_chars - sent_chars) // 4)
+    metrics_mod.record_tokens_saved(saved)
+    metrics_mod.record_memory_retrieval(hits=len(picked), misses=1 if not picked else 0)
+
+
 def _trim_messages(messages: list[dict], max_chars: int = 600) -> list[dict]:
     """Truncate individual message content to keep request sizes bounded."""
     out = []
@@ -198,6 +208,7 @@ def _passive_fallback(
         except Exception:
             picked = retrieve_top_k(all_rows, user_text, config.TOP_K) if all_rows else []
 
+    _record_token_savings(state, picked)
     memory_block = _format_memory_block(picked)
     # Hard cap to keep request size bounded on low-TPM free tiers
     if len(memory_block) > 1200:
@@ -245,6 +256,11 @@ def chat_turn(
     """
     if not config.TOOL_USE_ENABLED:
         return _passive_fallback(client, conn, state, user_text)
+
+    # Record token savings from history truncation before tool-use loop
+    full_chars = sum(len(m.get("content") or "") for m in state.messages)
+    sent_chars = sum(len(m.get("content") or "") for m in state.messages[-config.RECENT_MESSAGES:])
+    metrics_mod.record_tokens_saved(max(0, (full_chars - sent_chars) // 4))
 
     system_prompt = _build_system_with_profile(conn, state.tenant_id)
     api_messages: list[dict] = [{"role": "system", "content": system_prompt}]

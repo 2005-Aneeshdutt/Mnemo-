@@ -3,12 +3,13 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import time
 from contextlib import asynccontextmanager
 from typing import Any
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from mnemo.client import create_client
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -17,6 +18,7 @@ from slowapi.util import get_remote_address
 
 from mnemo import auth as auth_mod
 from mnemo import config
+from mnemo import metrics as metrics_mod
 from mnemo.agent import ChatState, chat_turn, chat_turn_stream
 from mnemo import store
 from mnemo.tenancy import scope_session
@@ -52,9 +54,22 @@ async def lifespan(app: FastAPI):
     app.state.conn.close()
 
 
-app = FastAPI(title="Mnemo API", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="Mnemo API", version="0.4.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.middleware("http")
+async def _track_request_metrics(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    latency_ms = (time.perf_counter() - start) * 1000
+    metrics_mod.record_request(
+        endpoint=request.url.path,
+        status=response.status_code,
+        latency_ms=latency_ms,
+    )
+    return response
 
 
 def _resolve_tenant(x_tenant_id: str | None, body_tenant: str) -> str:
@@ -65,6 +80,19 @@ def _resolve_tenant(x_tenant_id: str | None, body_tenant: str) -> str:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/metrics", response_class=PlainTextResponse, include_in_schema=False)
+def prometheus_metrics() -> str:
+    """Prometheus text-format metrics scrape endpoint."""
+    return metrics_mod.metrics_prometheus()
+
+
+@app.get("/v1/metrics", dependencies=[Depends(auth_mod.require_api_key)])
+@limiter.limit(config.RATE_LIMIT_DEFAULT)
+def json_metrics(request: Request) -> dict[str, Any]:
+    """JSON metrics snapshot: counters, latency histograms (p50/p95/p99), token savings."""
+    return metrics_mod.metrics_json()
 
 
 @app.post(

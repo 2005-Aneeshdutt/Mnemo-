@@ -11,6 +11,7 @@ from groq import Groq
 
 from mnemo import config
 from mnemo import embeddings as emb
+from mnemo import metrics as metrics_mod
 from mnemo import store
 
 logger = logging.getLogger(__name__)
@@ -125,13 +126,15 @@ def _run_compaction(
             embedding=blob,
         )
 
+    new_rows = len(facts) + len(triples)
+    metrics_mod.record_compaction(original_rows=len(rows), new_rows=new_rows)
     result = {
         "compacted": True,
         "original_rows": len(rows),
         "new_facts": len(facts),
         "new_triples": len(triples),
     }
-    logger.info("Compaction complete for %s: %d → %d rows", session_id, len(rows), len(facts) + len(triples))
+    logger.info("Compaction complete for %s: %d → %d rows", session_id, len(rows), new_rows)
     return result
 
 
