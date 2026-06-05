@@ -7,6 +7,8 @@
 
 Mnemo is a persistent memory layer for LLM agents. Rather than passively injecting retrieved context, Mnemo exposes memory as a set of tools the model actively calls — deciding when to recall, store, update, or delete facts. A background compaction agent periodically consolidates memories to maintain quality across long conversations.
 
+**[Full documentation →](docs/README.md)**
+
 ## Table of Contents
 
 - [Why Mnemo](#why-mnemo)
